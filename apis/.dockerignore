@@ -1,0 +1,22 @@
+# VCS & OS cruft
+.git
+.gitignore
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+env/
+venv/
+
+# Node / Deno / misc
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# Secrets
+.env

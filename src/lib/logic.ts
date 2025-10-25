@@ -168,39 +168,51 @@ export function buildCraftedTotals(topLevel: Map<string, number>): { Item: strin
 
 
 export function formatRecipeTree(
-    topMap: Map<string, number>,
-    recipes: RecipesMap
+  topMap: Map<string, number>,
+  recipes: RecipesMap
 ): string {
-    const lines: string[] = ['=== Recipe Breakdown ==='];
-    const entries = Array.from(topMap.entries()); // [[name, qty], ...]
+  const lines: string[] = ['=== Recipe Tree ==='];
+  lines.push('│');
 
-    function norm(pair: RecipeItem): [string, number] {
-        return Array.isArray(pair) ? [pair[0], pair[1]] : [pair.ingredient, pair.qty];
+  // [[name, qty], ...]
+  const entries = Array.from(topMap.entries()); 
+
+  // keep RecipeItem normalization
+  function norm(pair: RecipeItem): [string, number] {
+    return Array.isArray(pair) ? [pair[0], pair[1]] : [pair.ingredient, pair.qty];
+  }
+
+  // notebook-like quantity: integers without .0, others trimmed
+  function fmtQty(n: number): string {
+    if (Number.isInteger(n)) return String(n);
+    // keep reasonable precision, then trim trailing zeros and the dot
+    let s = n.toFixed(6);
+    s = s.replace(/\.?0+$/, '');
+    return s;
+  }
+
+  function fmtNode(name: string, qty: number, prefix = '', isLast = false) {
+    const branch = isLast ? '└── ' : '├── ';
+    lines.push(`${prefix}${branch}(${fmtQty(qty)}) ${name}`);
+
+    const kids = recipes[name] ?? [];
+    const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+    for (const [i, item] of kids.entries()) {
+      const [childName, childQty] = norm(item);
+      const lastChild = i === kids.length - 1;
+      fmtNode(childName, childQty * qty, nextPrefix, lastChild);
     }
+  }
 
-    function fmtNode(name: string, qty: number, prefix = '', isLast = false) {
-        const branch = isLast ? '└── ' : '├── ';
-        lines.push(`${prefix}${branch}(${qty}) ${name}`);
+  entries.forEach(([prod, qty], i) => {
+    const isLastTop = i === entries.length - 1;
+    fmtNode(prod, qty, '', isLastTop);
+    // separator between top-level items uses box-drawing vertical bar
+    if (!isLastTop) lines.push('│');
+  });
 
-        const kids = recipes[name] ?? [];
-        const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-        for (const [i, item] of kids.entries()) {
-            const [childName, childQty] = norm(item); // item is RecipeItem (not undefined)
-            const lastChild = i === kids.length - 1;
-            fmtNode(childName, childQty * qty, nextPrefix, lastChild);
-        }
-    }
+  // Ensure no trailing separator
+  if (lines.length && lines[lines.length - 1] === '│') lines.pop();
 
-
-    entries.forEach(([prod, qty], i) => {
-        const isLastTop = i === entries.length - 1;
-        fmtNode(prod, qty, '', isLastTop);
-        // Separator only BETWEEN top-level items
-        if (!isLastTop) lines.push('|');
-    });
-
-    // Ensure no trailing bar
-    if (lines.length && lines[lines.length - 1] === '|') lines.pop();
-
-    return lines.join('\n');
+  return lines.join('\n');
 }

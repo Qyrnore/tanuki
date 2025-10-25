@@ -31,19 +31,18 @@
             <input
               v-model="q"
               class="input input-bordered join-item w-full"
-              placeholder="Search CSV names…"
+              placeholder="Search recipe names…"
             />
-            <button class="btn join-item" @click="q = ''">Clear</button>
           </div>
           <div class="text-xs opacity-70 mt-2">
-            Showing {{ filtered.length }} of {{ files.length }} files.
+            Showing {{ filtered.length }} of {{ files.length }} recipes.
           </div>
 
           <div class="flex gap-2 mt-3">
             <button class="btn btn-xs" @click="selectAllFiltered">
-              Select filtered
+              Check All
             </button>
-            <button class="btn btn-xs" @click="invertSelection">Invert</button>
+            <button class="btn btn-xs" @click="invertSelection">Invert Checks</button>
           </div>
 
           <!-- Scroll area constrained; prevents rightward creep -->
@@ -57,7 +56,7 @@
                     :checked="qtyMap[f] !== undefined"
                     @change="toggle(f)"
                   />
-                  <span class="truncate">{{ f }}</span>
+                  <span class="truncate">{{ labelFor(f) }}</span>
                 </label>
               </li>
             </ul>
@@ -67,7 +66,7 @@
         <!-- Right: selected list with quantities -->
         <div class="min-w-0">
           <div class="flex items-center justify-between">
-            <h3 class="font-semibold">Selected ({{ selectedCount }})</h3>
+            <h3 class="font-semibold">Selected Recipes ({{ selectedCount }})</h3>
           </div>
 
           <!-- Table wrapper with both X/Y scroll constrained -->
@@ -75,14 +74,14 @@
             <table class="table table-sm table-zebra w-full table-fixed">
               <thead class="sticky top-0 bg-base-200 z-10">
                 <tr>
-                  <th class="w-2/3">Item CSV</th>
+                  <th class="w-2/3">Item Name</th>
                   <th class="w-1/3">Quantity</th>
                   <th class="w-10"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="f in selectedList" :key="f">
-                  <td class="truncate align-top pt-4 min-w-0">{{ f }}</td>
+                  <td class="truncate align-top pt-4 min-w-0">{{ labelFor(f) }}</td>
                   <td>
                     <div class="join">
                       <button class="btn btn-xs join-item" @click="dec(f)">-</button>
@@ -120,8 +119,10 @@
           </div>
 
           <p class="text-xs opacity-70 mt-3">
-            Quantities behave like duplicating a file in the old workflow (e.g.,
-            <b>3</b> == three copies).
+            Workshop projects selected appear here, adjust quantities as needed.
+          </p>
+          <p class="text-xs opacity-70 mt-1">
+            <b>*NOTE:</b> Tanuki only loads in company workshop project recipes by default, see "Custom Recipes & Gathering" for other items.
           </p>
         </div>
       </div>
@@ -130,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 
 const props = defineProps<{
   /** Folder path to the CSVs, e.g. "data/fabrication_requirements/" (must end with `/`) */
@@ -184,11 +185,30 @@ function touch(key: string) {
   touched.value = { ...touched.value, [key]: true };
 }
 
+function humanizeFilename(f: string): string {
+  // drop extension
+  const base = f.replace(/\.[^.]+$/, "");
+  // split on underscores/spaces, capitalize first letter
+  return base
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
+function labelFor(f: string): string {
+  return humanizeFilename(f);
+}
+
 // --- filtering & selection ---
 const filtered = computed(() => {
   const s = q.value.trim().toLowerCase();
   if (!s) return props.files.slice();
-  return props.files.filter((f) => f.toLowerCase().includes(s));
+  return props.files.filter((f) => {
+    const raw = f.toLowerCase();
+    const label = labelFor(f).toLowerCase();
+    return raw.includes(s) || label.includes(s);
+  });
 });
 
 const selectedList = computed(() =>

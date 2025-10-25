@@ -1,5 +1,5 @@
 import { parseCsvLoose } from "./csv";
-import type { RecipesMap, GatheringInfo, GatheringMap, RequirementRow } from "./types";
+import type { RecipesMap, RecipeItem, GatheringInfo, GatheringMap, RequirementRow } from "./types";
 
 export interface PartsDoc {
     name: string;
@@ -165,8 +165,7 @@ export function buildCraftedTotals(topLevel: Map<string, number>): { Item: strin
 
 // Render the recipe tree (quantity first)
 // Accept both tuples and object items
-type RecipeItem = [string, number] | { ingredient: string; qty: number };
-type RecipesMap = Record<string, RecipeItem[]>;
+
 
 export function formatRecipeTree(
     topMap: Map<string, number>,

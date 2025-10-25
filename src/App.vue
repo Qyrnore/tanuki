@@ -1,8 +1,8 @@
 <template>
   <div class="min-h-screen p-4 md:p-6">
     <!-- Header -->
-    <header class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 mb-5">
-      <h1 class="text-3xl font-extrabold tracking-tight">Tanuki</h1>
+    <header class="mx-auto w-full max-w-[1600px] flex flex-wrap items-center justify-between gap-3 mb-5 px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-extrabold tracking-tight">tanuki. (=◉ᆽ◉=)</h1>
       <div class="flex items-center gap-2">
         <button
           class="btn btn-sm"
@@ -10,28 +10,28 @@
           :aria-expanded="showRefPanels"
           aria-controls="custom-ref-panels"
         >
-          {{ showRefPanels ? 'Hide' : 'Show' }} custom recipe &amp; gathering
+          {{ showRefPanels ? 'Hide' : 'Show' }} Custom Recipes &amp; Gathering
         </button>
         <button class="btn btn-sm" @click="toggleTheme">Toggle Theme</button>
       </div>
     </header>
 
     <!-- Main content -->
-    <main class="max-w-7xl mx-auto">
-      <!-- Responsive grid: when results exist, show 12-col with 7/5 split; otherwise left fills all -->
-      <div class="grid gap-5 lg:grid-cols-12">
+    <main class="mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8">
+      <!-- Responsive grid: stacks on small, split on large -->
+      <div class="grid gap-6 lg:grid-cols-12 items-start">
         <!-- LEFT: controls -->
         <section
           :class="resultsReady ? 'lg:col-span-7' : 'lg:col-span-12'"
-          class="flex flex-col gap-4"
+          class="flex flex-col gap-4 min-w-0"
         >
           <!-- Collapsible custom reference panels -->
           <div
             id="custom-ref-panels"
             v-show="showRefPanels"
-            class="grid md:grid-cols-2 gap-4"
+            class="grid gap-4 min-w-0 md:grid-cols-2"
           >
-            <div class="card bg-base-100 border border-base-300">
+            <div class="card bg-base-100 border border-base-300 min-w-0">
               <div class="card-body">
                 <h2 class="card-title">Reference: recipe_book.csv</h2>
                 <div v-if="recipeBookText" class="badge badge-success badge-sm">Loaded</div>
@@ -41,7 +41,7 @@
               </div>
             </div>
 
-            <div class="card bg-base-100 border border-base-300">
+            <div class="card bg-base-100 border border-base-300 min-w-0">
               <div class="card-body">
                 <h2 class="card-title">Reference: recipe_gathering.csv</h2>
                 <div v-if="gatheringText" class="badge badge-success badge-sm">Loaded</div>
@@ -55,6 +55,7 @@
           <!-- Configure Project -->
           <ConfigureProject
             v-if="allItems.length > 0"
+            class="min-w-0"
             :base-path="itemsBasePath"
             :files="allItems"
             @process="onProcessBundle"
@@ -67,14 +68,18 @@
         </section>
 
         <!-- RIGHT: results (sticky when visible) -->
-        <aside v-if="resultsReady" class="lg:col-span-5">
-          <div class="lg:sticky lg:top-4">
-            <ResultsTabs
-              :crafted-rows="craftedRows"
-              :gathering-no-loc="gatheringNoLoc"
-              :gathering-with-loc="gatheringWithLoc"
-              :tree-text="treeText"
-            />
+        <aside v-if="resultsReady" class="lg:col-span-5 min-w-0">
+          <div class="lg:sticky lg:top-4 min-w-0">
+            <!-- Scroll wrapper prevents table/content from widening the page -->
+            <div class="overflow-x-auto overflow-y-auto max-h-[80vh] rounded border border-base-300 min-w-0">
+              <ResultsTabs
+                class="block min-w-0"
+                :crafted-rows="craftedRows"
+                :gathering-no-loc="gatheringNoLoc"
+                :gathering-with-loc="gatheringWithLoc"
+                :tree-text="treeText"
+              />
+            </div>
           </div>
         </aside>
       </div>

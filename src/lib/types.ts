@@ -2,9 +2,8 @@ export type Quantity = number
 
 export interface TopLevelItem { item: string; quantity: Quantity }
 
-export interface RecipesMap {
-    [product: string]: Array<{ingredient: string; qty: number }>
-}
+export type RecipeItem = { ingredient: string; qty: number };
+export type RecipesMap = Record<string, RecipeItem[]>;
 
 export interface GatheringInfo {
     method?: string

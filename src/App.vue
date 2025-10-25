@@ -1,84 +1,84 @@
 <template>
-  <div class="min-h-full p-6 max-w-6xl mx-auto">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">Tanuki Workshop Web</h1>
+  <div class="min-h-screen p-4 md:p-6">
+    <!-- Header -->
+    <header class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 mb-5">
+      <h1 class="text-3xl font-extrabold tracking-tight">Tanuki</h1>
       <div class="flex items-center gap-2">
+        <button
+          class="btn btn-sm"
+          @click="showRefPanels = !showRefPanels"
+          :aria-expanded="showRefPanels"
+          aria-controls="custom-ref-panels"
+        >
+          {{ showRefPanels ? 'Hide' : 'Show' }} custom recipe &amp; gathering
+        </button>
         <button class="btn btn-sm" @click="toggleTheme">Toggle Theme</button>
-        <a class="btn btn-sm btn-ghost" href="https://github.com/" target="_blank">GitHub</a>
       </div>
-    </div>
+    </header>
 
-    <div class="mb-4 join">
-      <button class="btn join-item" :class="mode==='upload' ? 'btn-active' : ''" @click="mode='upload'">Manual upload</button>
-      <button class="btn join-item" :class="mode==='preset' ? 'btn-active' : ''" @click="mode='preset'">Use bundled preset</button>
-    </div>
+    <!-- Main content -->
+    <main class="max-w-7xl mx-auto">
+      <!-- Responsive grid: when results exist, show 12-col with 7/5 split; otherwise left fills all -->
+      <div class="grid gap-5 lg:grid-cols-12">
+        <!-- LEFT: controls -->
+        <section
+          :class="resultsReady ? 'lg:col-span-7' : 'lg:col-span-12'"
+          class="flex flex-col gap-4"
+        >
+          <!-- Collapsible custom reference panels -->
+          <div
+            id="custom-ref-panels"
+            v-show="showRefPanels"
+            class="grid md:grid-cols-2 gap-4"
+          >
+            <div class="card bg-base-100 border border-base-300">
+              <div class="card-body">
+                <h2 class="card-title">Reference: recipe_book.csv</h2>
+                <div v-if="recipeBookText" class="badge badge-success badge-sm">Loaded</div>
+                <div v-else>
+                  <FileDrop title="Upload recipe_book.csv" accept=".csv" @files="onRecipeBook" />
+                </div>
+              </div>
+            </div>
 
-    <!-- Upload Mode -->
-    <div v-if="mode==='upload'" class="grid md:grid-cols-2 gap-6">
-      <FileDrop
-        title="1) Upload recipe_book.csv"
-        subtitle="Alternating columns: product, ingredient1, qty1, ingredient2, qty2, ..."
-        accept=".csv"
-        @files="onRecipeBook"
-      />
-      <FileDrop
-        title="2) Upload recipe_gathering.csv"
-        subtitle="Columns: Ingredient, Method, (optional location fields...)"
-        accept=".csv"
-        @files="onGathering"
-      />
-      <div class="md:col-span-2">
-        <FileDrop
-          title="3) Upload workshop_parts CSVs"
-          subtitle="Drop multiple .csv files (surpluses allowed with negatives)"
-          accept=".csv"
-          :multiple="true"
-          @files="onParts"
-        />
-      </div>
-    </div>
+            <div class="card bg-base-100 border border-base-300">
+              <div class="card-body">
+                <h2 class="card-title">Reference: recipe_gathering.csv</h2>
+                <div v-if="gatheringText" class="badge badge-success badge-sm">Loaded</div>
+                <div v-else>
+                  <FileDrop title="Upload recipe_gathering.csv" accept=".csv" @files="onGathering" />
+                </div>
+              </div>
+            </div>
+          </div>
 
-    <!-- Preset Mode -->
-    <div v-else class="grid gap-6">
-      <div class="card bg-base-100 border border-base-300">
-        <div class="card-body">
-          <h2 class="card-title">Bundled preset</h2>
-          <p class="opacity-80">
-            Pick a set from <code>public/data</code>. Reference CSVs can be bundled so you don't need to upload them each time.
+          <!-- Configure Project -->
+          <ConfigureProject
+            v-if="allItems.length > 0"
+            :base-path="itemsBasePath"
+            :files="allItems"
+            @process="onProcessBundle"
+          />
+
+          <p v-if="!haveRefs" class="text-sm opacity-70">
+            Reference CSVs must be present before processing (auto-loaded from <code>/public</code> if available,
+            or upload via the toggle above).
           </p>
-          <div class="flex items-center gap-3">
-            <select class="select select-bordered w-full max-w-lg" v-model="selectedPreset">
-              <option disabled value="">— Select a preset —</option>
-              <option v-for="s in presets" :key="s.path" :value="s.path">
-                {{ s.name }} ({{ s.files.length }} files)
-              </option>
-            </select>
-            <button class="btn" :disabled="!selectedPreset || !haveBookAndGathering" @click="loadPreset">Load preset</button>
+        </section>
+
+        <!-- RIGHT: results (sticky when visible) -->
+        <aside v-if="resultsReady" class="lg:col-span-5">
+          <div class="lg:sticky lg:top-4">
+            <ResultsTabs
+              :crafted-rows="craftedRows"
+              :gathering-no-loc="gatheringNoLoc"
+              :gathering-with-loc="gatheringWithLoc"
+              :tree-text="treeText"
+            />
           </div>
-          <div class="text-sm mt-2" v-if="!haveBookAndGathering">
-            <span class="opacity-70">Upload <code>recipe_book.csv</code> and <code>recipe_gathering.csv</code> once (or bundle them in <code>public/</code>).</span>
-          </div>
-        </div>
+        </aside>
       </div>
-
-      <div class="grid md:grid-cols-2 gap-6">
-        <FileDrop v-if="!recipeBookText" title="Upload recipe_book.csv" accept=".csv" @files="onRecipeBook" />
-        <FileDrop v-if="!gatheringText" title="Upload recipe_gathering.csv" accept=".csv" @files="onGathering" />
-      </div>
-    </div>
-
-    <div class="mt-6 flex gap-3">
-      <button class="btn btn-primary" :disabled="!ready" @click="processAll">Process</button>
-      <span class="opacity-70" v-if="!ready">Provide both recipe files and a parts set.</span>
-    </div>
-
-    <ResultsTabs
-      v-if="resultsReady"
-      :crafted-rows="craftedRows"
-      :gathering-no-loc="gatheringNoLoc"
-      :gathering-with-loc="gatheringWithLoc"
-      :tree-text="treeText"
-    />
+    </main>
   </div>
 </template>
 
@@ -86,52 +86,118 @@
 import { ref, computed, onMounted } from 'vue';
 import FileDrop from './components/FileDrop.vue';
 import ResultsTabs from './components/ResultsTabs.vue';
+import ConfigureProject from './components/ConfigureProject.vue';
+
 import { readFileText } from './lib/csv';
 import {
-  buildTopLevel,
+  buildTopLevelFromWeightedParts,
   parseRecipeBookCsv,
   parseGatheringCsv,
   buildCraftedTotals,
   buildGatheringList,
   formatRecipeTree,
+  type PartsDoc,
 } from './lib/logic';
 
-type Mode = 'upload' | 'preset';
-const mode = ref<Mode>('preset');
+// --- UI state ---
+const showRefPanels = ref(false);
 
+// --- Reference CSVs ---
 const recipeBookText = ref<string | null>(null);
 const gatheringText = ref<string | null>(null);
-const partsTexts = ref<string[]>([]);
+const haveRefs = computed(() => !!recipeBookText.value && !!gatheringText.value);
 
+// --- Selected item docs (with quantities) ---
+const partsDocs = ref<PartsDoc[]>([]);
+
+// --- Output viewmodels ---
 const craftedRows = ref<{ Item: string; Quantity: number }[]>([]);
 const gatheringNoLoc = ref<Record<string, string | number>[]>([]);
 const gatheringWithLoc = ref<Record<string, string | number>[]>([]);
 const treeText = ref('');
+const resultsReady = computed(() => craftedRows.value.length > 0);
 
+function isHtml(ct: string | null | undefined) {
+  return (ct ?? '').toLowerCase().includes('text/html');
+}
+async function fetchTextAsset(path: string): Promise<string | null> {
+  const origin = window.location.origin;
+  const base   = import.meta.env.BASE_URL;
+  const absBase = new URL(base, origin).toString();
+  const candidates = [
+    `${absBase}${path}`,
+    `${base}${path}`,
+    `${path}`,
+    `/${path}`,
+  ];
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const ct = r.headers.get('content-type');
+      if (isHtml(ct)) continue;
+      const t = await r.text();
+      if (t && t.trim()) return t;
+    } catch {}
+  }
+  return null;
+}
+
+// --- Theme toggle ---
 function toggleTheme() {
   const html = document.documentElement;
   const current = html.getAttribute('data-theme') || 'dark';
   html.setAttribute('data-theme', current === 'dark' ? 'emerald' : 'dark');
 }
 
-async function onRecipeBook(files: File[]) {
-  recipeBookText.value = files.length ? await readFileText(files[0]) : null;
-}
-async function onGathering(files: File[]) {
-  gatheringText.value = files.length ? await readFileText(files[0]) : null;
-}
-async function onParts(files: File[]) {
-  partsTexts.value = await Promise.all(files.map(readFileText));
+// --- Clear results when inputs change ---
+function clearResults() {
+  craftedRows.value = [];
+  gatheringNoLoc.value = [];
+  gatheringWithLoc.value = [];
+  treeText.value = '';
 }
 
-const haveBookAndGathering = computed(() => !!recipeBookText.value && !!gatheringText.value);
-const ready = computed(() => haveBookAndGathering.value && partsTexts.value.length > 0);
-const resultsReady = computed(() => craftedRows.value.length > 0);
+// --- Upload fallbacks for references ---
+async function onRecipeBook(files: File[] | FileList | readonly File[]) {
+  const f = (files as any)?.[0] as File | undefined;
+  recipeBookText.value = f ? await readFileText(f) : null;
+  clearResults();
+}
+
+async function onGathering(files: File[] | FileList | readonly File[]) {
+  const f = (files as any)?.[0] as File | undefined;
+  gatheringText.value = f ? await readFileText(f) : null;
+  clearResults();
+}
+
+// --- One-click process from ConfigureProject ---
+// --- Compute pipeline ---
+async function onProcessBundle(docs: PartsDoc[]) {
+  console.debug('[App] onProcessBundle docs:', docs.length);
+  partsDocs.value = docs;
+
+  if (!docs.length) {
+    // User clicked with no selection or fetch failed for all
+    alert('No items selected or files failed to load. Try selecting at least one CSV.');
+    return;
+  }
+  if (!haveRefs.value) {
+    alert('Missing references: recipe_book.csv and/or recipe_gathering.csv. Toggle the panel to provide them or add them to /public.');
+    return;
+  }
+
+  clearResults();
+  processAll();
+}
 
 function processAll() {
-  if (!ready.value) return;
+  if (!haveRefs.value || partsDocs.value.length === 0) return;
 
-  const topMap = buildTopLevel(partsTexts.value);
+  console.time('[App] processAll');
+  const topMap = buildTopLevelFromWeightedParts(partsDocs.value);
+  console.debug('[App] topMap size:', topMap.size);
+
   const crafted = buildCraftedTotals(topMap);
   const recipes = parseRecipeBookCsv(recipeBookText.value!);
   const gathering = parseGatheringCsv(gatheringText.value!);
@@ -150,48 +216,66 @@ function processAll() {
     Method: r.Method ?? 'unknown',
   }));
   treeText.value = formatRecipeTree(topMap, recipes);
+
+  console.debug('[App] crafted rows:', craftedRows.value.length, 'gather rows:', gatheringRows.length);
+  console.timeEnd('[App] processAll');
+
+  if (craftedRows.value.length === 0) {
+    // Surface a gentle hint if we processed but produced nothing
+    alert('Processed, but produced no rows. This usually means the selected CSVs did not parse as "Item,Quantity". Try a different file.');
+  }
 }
 
-// ---- Presets (public/manifest.json) ----
-interface Preset { name: string; path: string; files: string[] }
-const presets = ref<Preset[]>([]);
-const selectedPreset = ref('');
+
+// --- Load refs + manifest list on mount ---
+const itemsBasePath = ref<'data/fabrication_requirements/' | 'data/all_items/'>('data/fabrication_requirements/');
+const allItems = ref<string[]>([]);
 
 onMounted(async () => {
-  try {
-    const base = import.meta.env.BASE_URL; // important for GitHub Pages
-    const res = await fetch(`${base}manifest.json`);
-    if (res.ok) {
-      const j = await res.json();
-      presets.value = j.sets ?? [];
+  // 1) Auto-load the two reference CSVs from /public
+  recipeBookText.value = await fetchTextAsset('recipe_book.csv');
+  gatheringText.value  = await fetchTextAsset('recipe_gathering.csv');
 
-      // Auto-load bundled reference files if included
-      if (j.reference?.recipe_book) {
-        const rb = await (await fetch(`${base}${j.reference.recipe_book}`)).text();
-        recipeBookText.value = rb;
+  // 2) Load a manifest that describes the CSV files for ConfigureProject
+  //    We support a few shapes so this "just works":
+  //    A) { sets: [{ path: "...", files: [...] }, ...] }
+  //    B) { path: "...", files: [...] }
+  //    C) [ "file1.csv", "file2.csv", ... ]   (assume fabrication_requirements path)
+  let manifestText =
+    (await fetchTextAsset('manifest.json')) ??
+    (await fetchTextAsset('data/manifest.json')); // optional fallback
+
+  if (manifestText) {
+    try {
+      const m = JSON.parse(manifestText);
+
+      // A) sets[]
+      if (m?.sets && Array.isArray(m.sets)) {
+        // Prefer the new folder, fall back to old if needed
+        let set = m.sets.find((s: any) => s?.path === 'data/fabrication_requirements/');
+        if (set?.path && Array.isArray(set.files)) {
+          itemsBasePath.value = set.path;
+          allItems.value = set.files as string[];
+        }
       }
-      if (j.reference?.recipe_gathering) {
-        const rg = await (await fetch(`${base}${j.reference.recipe_gathering}`)).text();
-        gatheringText.value = rg;
+      // B) single object with path/files
+      else if (m?.path && Array.isArray(m.files)) {
+        itemsBasePath.value = m.path;
+        allItems.value = m.files as string[];
       }
+      // C) bare array of filenames
+      else if (Array.isArray(m)) {
+        itemsBasePath.value = 'data/fabrication_requirements/';
+        allItems.value = m as string[];
+      }
+    } catch {
+      /* ignore bad JSON */
     }
-  } catch {
-    // ignore fetch errors in dev when public/ not present
   }
+
+  // Optional: visible status for quick debugging
+  console.debug('[App] refs:', { recipe: !!recipeBookText.value, gathering: !!gatheringText.value });
+  console.debug('[App] items path:', itemsBasePath.value, 'count:', allItems.value.length);
 });
 
-async function loadPreset() {
-  if (!selectedPreset.value) return;
-  const set = presets.value.find((p) => p.path === selectedPreset.value);
-  if (!set) return;
-
-  const base = import.meta.env.BASE_URL;
-  const texts: string[] = [];
-  for (const fname of set.files) {
-    const url = `${base}${set.path}${fname}`;
-    const res = await fetch(url);
-    texts.push(await res.text());
-  }
-  partsTexts.value = texts;
-}
 </script>

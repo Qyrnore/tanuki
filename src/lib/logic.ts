@@ -1,27 +1,79 @@
 import { parseCsvLoose } from "./csv";
 import type { RecipesMap, GatheringInfo, GatheringMap, RequirementRow } from "./types";
 
-// Build totals from input CSVs.
-export function buildTopLevel(filesText: string[]): Map<string, number> {
-  const totals = new Map<string, number>();
+export interface PartsDoc {
+    name: string;
+    text: string;
+    qty: number; // integer >= 1
+}
 
-  for (const text of filesText) {
-    const rows = parseCsvLoose(text);
-    for (const r of rows) {
-      if (r.length < 2) continue;
+/**
+ * Robustly read "Item,Quantity" pairs from multiple CSV texts and apply a multiplier.
+ * - Ignores headers/blank/comment lines
+ * - Accepts extra columns; takes the first 2
+ * - Accepts CRLF / LF
+ * - Trims quotes and whitespace
+ */
+export function buildTopLevelFromWeightedParts(parts: PartsDoc[]): Map<string, number> {
+    const totals = new Map<string, number>();
 
-      const name = r[0];
-      if (typeof name !== 'string' || name.trim() === '') continue;
+    for (const doc of parts) {
+        const weight = Number.isFinite(doc.qty) && doc.qty > 0 ? Math.floor(doc.qty) : 1;
+        const lines = doc.text.split(/\r?\n/);
 
-      const qtyRaw = r[1];
-      const qty = Number(qtyRaw);
-      if (!Number.isFinite(qty)) continue;
+        for (const raw of lines) {
+            if (!raw) continue;
+            const line = raw.trim();
+            if (!line || line.startsWith('#')) continue;
 
-      totals.set(name, (totals.get(name) ?? 0) + qty);
+            // Split once on the first comma; fall back to generic split
+            let a = '', b = '';
+            const idx = line.indexOf(',');
+            if (idx >= 0) {
+                a = line.slice(0, idx).trim().replace(/^"(.*)"$/, '$1');
+                b = (line.slice(idx + 1).split(',')[0] ?? '').trim().replace(/^"(.*)"$/, '$1');
+            } else {
+                const parts = line.split(',');
+                a = (parts[0] ?? '').trim().replace(/^"(.*)"$/, '$1');
+                b = (parts[1] ?? '').trim().replace(/^"(.*)"$/, '$1');
+            }
+
+            // Skip header-looking rows
+            const al = a.toLowerCase();
+            const bl = b.toLowerCase();
+            if (!a || al === 'item' || al === 'product' || bl === 'quantity' || bl === 'qty') continue;
+
+            const n = Number(b);
+            if (!Number.isFinite(n)) continue;
+
+            const add = n * weight;
+            totals.set(a, (totals.get(a) ?? 0) + add);
+        }
     }
-  }
+    return totals;
+}
 
-  return totals;
+// Build totals from input CSVs.
+export function buildTopLevelFromPartsCsvs(filesText: string[]): Map<string, number> {
+    const totals = new Map<string, number>();
+
+    for (const text of filesText) {
+        const rows = parseCsvLoose(text);
+        for (const r of rows) {
+            if (r.length < 2) continue;
+
+            const name = r[0];
+            if (typeof name !== 'string' || name.trim() === '') continue;
+
+            const qtyRaw = r[1];
+            const qty = Number(qtyRaw);
+            if (!Number.isFinite(qty)) continue;
+
+            totals.set(name, (totals.get(name) ?? 0) + qty);
+        }
+    }
+
+    return totals;
 }
 
 
@@ -112,33 +164,44 @@ export function buildCraftedTotals(topLevel: Map<string, number>): { Item: strin
 }
 
 // Render the recipe tree (quantity first)
+// Accept both tuples and object items
+type RecipeItem = [string, number] | { ingredient: string; qty: number };
+type RecipesMap = Record<string, RecipeItem[]>;
+
 export function formatRecipeTree(
-    topLevel: Map<string, number>,
-    recipes: RecipesMap,
+    topMap: Map<string, number>,
+    recipes: RecipesMap
 ): string {
-    const items = Array.from(topLevel.entries());
     const lines: string[] = ['=== Recipe Breakdown ==='];
+    const entries = Array.from(topMap.entries()); // [[name, qty], ...]
 
-    const fmtNode = (name: string, qty: number, prefix = '', isLast = false) => {
+    function norm(pair: RecipeItem): [string, number] {
+        return Array.isArray(pair) ? [pair[0], pair[1]] : [pair.ingredient, pair.qty];
+    }
+
+    function fmtNode(name: string, qty: number, prefix = '', isLast = false) {
         const branch = isLast ? '└── ' : '├── ';
-        lines.push(`${prefix}${branch}(${trimZeros(qty)}) ${name}`);
-        const kids = recipes[name];
-        if (!kids || kids.length === 0) return;
-        kids.forEach((k, idx) => {
-            const last = idx === kids.length - 1;
-            const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-            fmtNode(k.ingredient, k.qty * qty, nextPrefix, last);
-        });
-    };
+        lines.push(`${prefix}${branch}(${qty}) ${name}`);
 
-    items.forEach(([prod, qty], idx) => {
-        fmtNode(prod, qty, '', idx === items.length - 1);
-        lines.push('|');
+        const kids = recipes[name] ?? [];
+        const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+        for (const [i, item] of kids.entries()) {
+            const [childName, childQty] = norm(item); // item is RecipeItem (not undefined)
+            const lastChild = i === kids.length - 1;
+            fmtNode(childName, childQty * qty, nextPrefix, lastChild);
+        }
+    }
+
+
+    entries.forEach(([prod, qty], i) => {
+        const isLastTop = i === entries.length - 1;
+        fmtNode(prod, qty, '', isLastTop);
+        // Separator only BETWEEN top-level items
+        if (!isLastTop) lines.push('|');
     });
 
-    return lines.join('\n') + '\n';
-}
+    // Ensure no trailing bar
+    if (lines.length && lines[lines.length - 1] === '|') lines.pop();
 
-function trimZeros(n: number): string {
-    return Number.isInteger(n) ? `${n}` : `${+n.toFixed(6)}`.replace(/\.0+$/, '');
+    return lines.join('\n');
 }

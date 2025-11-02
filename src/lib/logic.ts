@@ -226,50 +226,42 @@ export function buildCraftedTotals(
 
 // Render the recipe tree (quantity first)
 // Accept both tuples and object items
-
 export function formatRecipeTree(
   topMap: Map<string, number>,
-  recipes: RecipesMap,
-  yields?: Record<string, number>
+  recipes: RecipesMap
 ): string {
-  const lines: string[] = ["=== Recipe Breakdown ==="];
-  const entries = Array.from(topMap.entries());
+  const lines: string[] = ['=== Recipe Breakdown ==='];
 
-  function fmtQty(n: number): string {
-    if (Number.isInteger(n)) return String(n);
-    let s = n.toFixed(6);
-    s = s.replace(/\.?0+$/, "");
-    return s;
-  }
+  // Sort top-level entries alphabetically (case-insensitive)
+  const entries = Array.from(topMap.entries()).sort((a, b) =>
+    a[0].localeCompare(b[0], undefined, { sensitivity: 'base' })
+  );
 
+  // Normalize a RecipeItem into [name, qty]
   function norm(pair: RecipeItem): [string, number] {
-    return Array.isArray(pair)
-      ? [pair[0], pair[1]]
-      : [pair.ingredient, pair.qty];
+    return Array.isArray(pair) ? [pair[0], pair[1]] : [pair.ingredient, pair.qty];
   }
 
-  function fmtNode(name: string, qty: number, prefix = "", isLast = false) {
-    const branch = isLast ? "└── " : "├── ";
-    lines.push(`${prefix}${branch}(${fmtQty(qty)}) ${name}`);
+  // Render a node and its children
+  function fmtNode(name: string, qty: number, prefix = '', isLast = false) {
+    const branch = isLast ? '└── ' : '├── ';
+    lines.push(`${prefix}${branch}(${qty}) ${name}`);
 
     const kids = recipes[name] ?? [];
-    const nextPrefix = prefix + (isLast ? "    " : "│   ");
-    const y = Math.max(1, Math.floor(yields?.[name] ?? 1));
-
-    for (const [i, item] of kids.entries()) {
-      const [childName, childQty] = norm(item);
+    const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+    kids.forEach((it, i) => {
+      const [childName, childQty] = norm(it);
       const lastChild = i === kids.length - 1;
-      const propagated = (childQty * qty) / y;
-      fmtNode(childName, propagated, nextPrefix, lastChild);
-    }
+      fmtNode(childName, childQty * qty, nextPrefix, lastChild);
+    });
   }
 
   entries.forEach(([prod, qty], i) => {
     const isLastTop = i === entries.length - 1;
-    fmtNode(prod, qty, "", isLastTop);
-    if (!isLastTop) lines.push("│");
+    fmtNode(prod, qty, '', isLastTop);
+    if (!isLastTop) lines.push('│'); // separator between top-level items, styled to match
   });
 
-  if (lines.length && lines[lines.length - 1] === "│") lines.pop();
-  return lines.join("\n");
+  if (lines.length && lines[lines.length - 1] === '│') lines.pop();
+  return lines.join('\n');
 }

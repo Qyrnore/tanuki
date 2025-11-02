@@ -71,7 +71,6 @@ Adamantite Nugget,Adamantite Ore,5,Darksteel Ore,1,Ice Crystal|Fire Crystal,5
 Adamantite Rivets,Adamantite Nugget,1,Ice Crystal|Fire Crystal,5
 Cassia Block,Cassia Lumber,1,Astral Oil,1,Dawnborne Aethersand,1,Wind Cluster,2,Ice Cluster,1
 Cassia Lumber,Cassia Log,3,Hardened Sap,9,Wind Cluster,2,Ice Cluster,1
-Astral Oil,Seventh Heaven,2,Astral Moraine,2,Bear Fat,1,Water Cluster,2,Lightning Cluster,1
 Kamacite,Kamacite Ore,3,Coke,9,Cobalt Ore,3,Fire Crystal,7,Earth Crystal,7
 Galvanized Garlond Steel,Vivianite,3,Sphalerite,2,Cobalt Ore,2,Coke,9,Ice Cluster|Fire Cluster,2,Earth Cluster,2
 Cryptomeria Lumber,Cryptomeria Log,3,Hardened Sap,9,Wind Crystal,6,Ice Crystal,6
@@ -94,7 +93,7 @@ Molybdenum Ingot,Molybdenum Ore,4,Cobalt Ore,1,Ice Crystal|Fire Crystal,5
 Triphane,Raw Triphane,3,Stiperstone,1,Wind Crystal,3
 Hallowed Chestnut Lumber,Dark Chestnut Lumber,1,Hallowed Water,2,Wind Crystal,5
 Wolfram Square,Scheelite,1,Ferberite,1,Cobalt Ore,1,Ice Cluster,2,Earth Cluster,1
-Hallowed Water,Abalathian Spring Water,2,Abalathian Mistletoe,2,Water Crystal,5
+Hallowed Water,3,Abalathian Spring Water,2,Abalathian Mistletoe,2,Water Crystal,5
 Clear Glass Lens,Silex,1,Natron,1,Water Shard,3
 Cobalt Nails,Cobalt Ingot,1,Fire Shard,5
 Cobalt Rings,Cobalt Ingot,1,Ice Shard,5
@@ -104,24 +103,24 @@ Amphiptere Leather,Amphiptere Skin,3,Dark Chestnut Log,1,Earth Crystal,5
 Ash Lumber,Ash Log,3,Wind Shard,1
 Assorted Fruit,Prickly Pineapple,1,La Noscean Orange,1,Lowland Grapes,1,Pixie Plums,1,Walnut Lumber,1,Fire Shard,6,Water Shard,6
 Astral Birch Lumber,Birch Lumber,2,Dryad Sap,5,Astral Oil,1,Wind Cluster,2,Ice Cluster,2
-Astral Oil,Seventh Heaven,2,Astral Moraine,2,Bear Fat,1,Water Cluster,2,Lightning Cluster,1
+Astral Oil,4,Seventh Heaven,2,Astral Moraine,2,Bear Fat,1,Water Cluster,2,Lightning Cluster,1
 Birch Lumber,Birch Log,5,Wind Crystal,5
 Atrociraptor Leather,Atrociraptor Skin,4,Yellow Alumen,1,Earth Crystal,7
 Bismuth Ingot,Bismuth Ore,5,Tin Ore,1,Fire Crystal,8
 Bluespirit Tile,Bluespirit Ore,4,Stiperstone,1,Fire Crystal,7
 Brass Ingot,Copper Ore,2,Zinc Ore,1,Wind Shard,1
-Bright Linen Yarn,Bright Flax,4,Lightning Crystal,3
+Bright Linen Yarn,3,Bright Flax,4,Lightning Crystal,3
 Camphorwood Lumber,Camphorwood Log,3,Wind Crystal,7,Ice Crystal,7
 Ceiba Lumber,Ceiba Log,5,Wind Crystal,8
 Clinker Bricks,Grenade Ash,1,Siltstone,2,Potter's Clay,1,Water Shard,5
 Cobalt Tungsten Ingot,Cobalt Tungsten Ore,5,Cobalt Ore,1,Fire Crystal,8
 Cotton Canvas,Cotton Yarn,2,Hempen Yarn,1,Beeswax,1,Lightning Shard,1
-Hempen Yarn,Moko Grass,2,Lightning Shard,1
+Hempen Yarn,2,Moko Grass,2,Lightning Shard,1
 Beeswax,Beehive Chip,3,Water Shard,1
 Cut Stone,Granite,3,Wind Shard,3
 Dark Hempen Cloth,Dark Hemp,5,Lightning Crystal,8
 Dark Mahogany Lumber,Dark Mahogany Log,5,Wind Crystal,5
-Dark Rye Flour,Dark Rye,6,Fire Crystal,8
+Dark Rye Flour,3,Dark Rye,6,Fire Crystal,8
 Deepgold Nugget,Truegold Sand,4,Copper Ore,1,Fire Crystal,6
 Deepgold Ingot,Truegold Ore,4,Copper Ore,1,Fire Crystal,6
 Dravanian Down Tree,Dravanian Mote,1,Growth Formula Delta,3,Water Cluster,2,Lightning Cluster,2
@@ -143,13 +142,13 @@ Growth Formula Kappa,Hoptrap Leaf,2,Vampire Vine Sap,2,Underground Spring Water,
 Growth Formula Lambda,Royal Maple Sap,4,Poison Frog Secretions,2,Water Crystal,8
 Hallowed Ramie Cloth,Ramie Cloth,1,Hallowed Water,2,Lightning Crystal,5
 Ramie Cloth,Ramie Thread,2,Linen Yarn,1,Lightning Crystal,2
-Ramie Thread,Stalk of Ramie,3,Flax,2,Lightning Crystal,2
+Ramie Thread,2,Stalk of Ramie,3,Flax,2,Lightning Crystal,2
 Hammerhead Crocodile Leather,Hammerhead Crocodile Skin,4,Eblan Alumen,1,Earth Crystal,8
 High Durium Ingot,High Durium Ore,5,Silver Ore,1,Fire Crystal,8
 High Steel Ingot,Koppranickel Ore,4,High Steel Nugget,1,Fire Crystal,3
 High Steel Nugget,Koppranickel Sand,4,Iron Ore,1,Fire Crystal,3
 Horse Chestnut Lumber,Horse Chestnut Log,5,Wind Crystal,8
-Iridescent Silk Thread,Iridescent Cocoon,4,Effervescent Water,1,Lightning Crystal,3
+Iridescent Silk Thread,3,Iridescent Cocoon,4,Effervescent Water,1,Lightning Crystal,3
 Jadeite,Jade,1,Wind Shard,5
 Kudzu Cloth,Kudzu Thread,2,Ruby Cotton Yarn,1,Lightning Crystal,2
 Ruby Cotton Yarn,Ruby Cotton Boll,4,Lightning Crystal,1
@@ -162,25 +161,25 @@ Moon Gel,Mousse Flesh,3,Lunatender Blossom,1,Water Crystal,8
 Mortar,Limestone,2,Fine Sand,1,Distilled Water,1,Water Shard,1
 Mountain Chromite Ingot,Mountain Chromite Ore,5,Molybdenum Ore,1,Fire Crystal,8
 Mountain Linen,Mountain Flax,5,Lightning Crystal,8
-Northern Sea Salt,Sharlayan Rock Salt,6,Fire Crystal,8
+Northern Sea Salt,3,Sharlayan Rock Salt,6,Fire Crystal,8
 Oroshigane Ingot,Doman Iron Ore,4,Iron Ore,1,Fire Crystal,4
-Ovim Wool Yarn,Ovim Fleece,4,Refined Natron,1,Lightning Crystal,3
+Ovim Wool Yarn,3,Ovim Fleece,4,Refined Natron,1,Lightning Crystal,3
 Refined Natron,Extra Effervescent Water,1,Ala Mhigan Salt Crystal,1,Water Crystal,7
-Palm Sugar,Palm Syrup,6,Fire Crystal,8
+Palm Sugar,3,Palm Syrup,6,Fire Crystal,8
 Persimmon Lumber,Persimmon Log,4,Wind Crystal,5
 Pewter Ingot,Pewter Ore,5,Tin Ore,1,Wind Crystal,8
 Phrygian Gold Ingot,Phrygian Gold Ore,5,Zinc Ore,1,Wind Crystal,8
 Pine Lumber,Pine Log,4,Wind Crystal,4
 Pixie Cotton,Pixie Floss,3,Lightning Crystal,4
-Pixie Floss,Pixie Floss Boll,4,Lightning Crystal,3
+Pixie Floss,3,Pixie Floss Boll,4,Lightning Crystal,3
 Red Pine Lumber,Red Pine Log,5,Wind Crystal,8
 Roof Tile,Potter's Clay,2,Straw,1,Water Shard,1
 Ruthenium Ingot,Ruthenium Ore,5,High Durium Ore,1,Fire Crystal,8
 Sandteak Lumber,Sandteak Log,4,Wind Crystal,7
 Scale Glue,Dragon Scale,3,Drake Scales,2,Biast Scales,2,Water Crystal,5
 Sea Swallow Leather,Sea Swallow Skin,4,Yellow Alumen,1,Earth Crystal,7
-Sideritis Cookie,Sideritis Leaves,3,Dark Rye Flour,1,Palm Sugar,1,Egg of Elpis,1,Fermented Butter,1,Fire Crystal,8,Water Crystal,8
-Fermented Butter,Yak Milk,5,Fire Shard,7
+Sideritis Cookie,3,Sideritis Leaves,3,Dark Rye Flour,1,Palm Sugar,1,Egg of Elpis,1,Fermented Butter,1,Fire Crystal,8,Water Crystal,8
+Fermented Butter,3,Yak Milk,5,Fire Shard,7
 Smilodon Leather,Smilodon Skin,4,Yellow Alumen,1,Earth Crystal,6
 Star Ruby,Raw Star Ruby,3,Basilisk Whetstone,1,Wind Crystal,4
 Starch Glue,Vampire Cup Vine,2,Vampire Vine Sap,2,Water Crystal,7

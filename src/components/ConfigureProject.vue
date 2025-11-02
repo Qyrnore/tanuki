@@ -1,12 +1,13 @@
 <template>
   <div class="card bg-base-100 border border-base-300 min-w-0">
     <div class="card-body gap-5">
+      <!-- Header / actions -->
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="card-title">Configure Batch Project</h2>
         <div class="flex gap-2">
           <button
             class="btn btn-primary btn-sm"
-            :disabled="selectedCount === 0"
+            :disabled="selectedCount === 0 || hasInvalid"
             @click="processNow"
             title="Process with current selection"
           >
@@ -22,41 +23,42 @@
         </div>
       </div>
 
-      <div v-if="hasInvalid" class="alert alert-warning text-sm" role="alert">
-        Some quantities are blank or invalid. Please enter a positive whole number for all selected rows.
+      <!-- Search + Exclusion controls -->
+      <div class="flex flex-col gap-2">
+        <div class="join w-full">
+          <input
+            v-model="q"
+            class="input input-bordered join-item w-full"
+            placeholder="Search recipe names…"
+          />
+          <button class="btn join-item" @click="q = ''">Clear</button>
+        </div>
+
+        <!-- Exclusions: always applied; text box hidden by default but editable -->
+        <div class="flex items-center justify-between">
+          <div class="text-xs opacity-70">
+            Exclusions are always active (edit to change): {{ excludesSummary }}
+          </div>
+          <button class="btn btn-ghost btn-xs" @click="excludesVisible = !excludesVisible">
+            {{ excludesVisible ? 'Hide' : 'Edit' }} exclusions
+          </button>
+        </div>
+        <div v-show="excludesVisible" class="w-full">
+          <input
+            v-model="excludesText"
+            class="input input-bordered w-full"
+            placeholder="Comma-separated phrases to exclude…"
+          />
+          <div class="text-xs opacity-60 mt-1">
+            Example: Roof, Signboard, Wall Decoration, Fence, Door, Exterior, Window, Roof Decoration
+          </div>
+        </div>
       </div>
 
+      <!-- Two balanced columns; stack on small screens -->
       <div class="grid gap-5 md:grid-cols-2 min-w-0">
-        <!-- Left: searchable list + optional excludes editor -->
+        <!-- Left: searchable file list -->
         <div class="min-w-0">
-          <!-- Search -->
-          <div class="join w-full">
-            <input
-              v-model="q"
-              class="input input-bordered join-item w-full"
-              placeholder="Search recipe names…"
-            />
-            <button class="btn join-item" @click="q = ''">Clear</button>
-          </div>
-
-          <!-- Toggle visibility of excludes box (excludes always active regardless) -->
-          <div class="mt-3">
-            <label class="flex items-center gap-2 text-sm">
-              <input type="checkbox" class="checkbox checkbox-sm" v-model="showExcludes" />
-              <span>Show exclude controls</span>
-            </label>
-          </div>
-
-          <!-- Excludes textbox (pre-filled; always applied even when hidden) -->
-          <div v-show="showExcludes" class="mt-2 flex items-center gap-2">
-            <input
-              v-model="excludeText"
-              class="input input-bordered input-sm w-full"
-              placeholder="Comma-separated excludes (e.g., Roof, Signboard, …)"
-            />
-            <button class="btn btn-sm" @click="resetExcludes" title="Reset to defaults">Reset</button>
-          </div>
-
           <div class="text-xs opacity-70 mt-2">
             Showing {{ filtered.length }} of {{ files.length }} recipes.
           </div>
@@ -66,17 +68,25 @@
             <button class="btn btn-xs" @click="invertSelection">Invert Checks</button>
           </div>
 
+          <!-- Scroll area constrained; prevents rightward creep -->
           <div class="mt-3 max-h-80 md:max-h-[28rem] overflow-auto rounded border border-base-300">
             <ul class="menu menu-sm">
               <li v-for="f in filtered" :key="f">
-                <label class="flex items-center gap-2 px-3 py-2">
+                <label
+                  class="flex items-center gap-2 px-3 py-2 relative"
+                  @mouseenter="onHoverStart('left', f, 1, $event)"
+                  @mouseleave="onHoverEnd"
+                  @touchstart.passive="onTouchStart('left', f, 1, $event)"
+                  @touchend.passive="onTouchEnd"
+                  @touchcancel.passive="onTouchEnd"
+                >
                   <input
                     type="checkbox"
                     class="checkbox checkbox-sm"
                     :checked="qtyMap[f] !== undefined"
                     @change="toggle(f)"
                   />
-                  <span class="truncate">{{ labelFor(f) }}</span>
+                  <span class="truncate">{{ prettyName(f) }}</span>
                 </label>
               </li>
             </ul>
@@ -89,6 +99,7 @@
             <h3 class="font-semibold">Selected Recipes ({{ selectedCount }})</h3>
           </div>
 
+          <!-- Table wrapper with both X/Y scroll constrained -->
           <div class="mt-3 max-h-80 md:max-h-[28rem] overflow-auto overflow-x-auto rounded border border-base-300">
             <table class="table table-sm table-zebra w-full table-fixed">
               <thead class="sticky top-0 bg-base-200 z-10">
@@ -99,11 +110,20 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="f in selectedList" :key="f">
-                  <td class="truncate align-top pt-4 min-w-0">{{ labelFor(f) }}</td>
+                <tr
+                  v-for="f in selectedList"
+                  :key="f"
+                  @mouseenter="onHoverStart('right', f, parseQty(getQty(f)) ?? 1, $event)"
+                  @mouseleave="onHoverEnd"
+                  @touchstart.passive="onTouchStart('right', f, parseQty(getQty(f)) ?? 1, $event)"
+                  @touchend.passive="onTouchEnd"
+                  @touchcancel.passive="onTouchEnd"
+                >
+                  <td class="truncate align-top pt-4 min-w-0">{{ prettyName(f) }}</td>
                   <td>
                     <div class="join">
                       <button class="btn btn-xs join-item" @click="dec(f)">-</button>
+                      <!-- Prevent iOS auto-zoom on focus: >=16px on mobile -->
                       <input
                         class="input input-bordered join-item w-20 text-center text-[16px] md:input-xs md:w-16 md:text-xs"
                         :class="{ 'input-error': invalidReason(f) }"
@@ -134,11 +154,27 @@
             Workshop projects selected appear here, adjust quantities as needed.
           </p>
           <p class="text-xs opacity-70 mt-1">
-            <b>*NOTE:</b> Tanuki only loads company workshop project recipes by default, see “Custom Recipes &amp; Gathering” for other items.
+            <b>*NOTE:</b> Tanuki only loads in company workshop project recipes by default, see “Custom Recipes &amp; Gathering” for other items.
           </p>
         </div>
       </div>
     </div>
+
+    <!-- Teleported hover/press bubble (fixed, not clipped by scroll) -->
+    <teleport to="body">
+      <div
+        v-if="bubble.visible"
+        class="fixed z-[9999] pointer-events-none transition-opacity duration-150"
+        :style="bubbleStyle"
+      >
+        <div class="chat" :class="bubble.side === 'left' ? 'chat-start' : 'chat-end'">
+          <div
+            class="chat-bubble max-w-[min(28rem,92vw)] whitespace-pre font-mono text-xs shadow-xl"
+            v-html="bubble.html"
+          ></div>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
@@ -157,50 +193,23 @@ const emit = defineEmits<{
 
 const q = ref("");
 
-// humanized label from filename
-function humanizeFileName(file: string): string {
-  const base = file.replace(/\.csv$/i, "");
-  return base
-    .split("_")
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-    .join(" ");
-}
-function labelFor(file: string) {
-  return humanizeFileName(file);
-}
-
-// Show/hide excludes editor (excludes apply regardless)
-const showExcludes = ref(false);
-
-// Excludes text (pre-filled with defaults). Always applied, even when hidden.
-const DEFAULT_EXCLUDES = [
-  "Roof",
-  "Signboard",
-  "Wall Decoration",
-  "Fence",
-  "Door",
-  "Exterior",
-  "Window",
-  "Roof Decoration",
-];
-const excludeText = ref(DEFAULT_EXCLUDES.join(", "));
-
-function resetExcludes() {
-  excludeText.value = DEFAULT_EXCLUDES.join(", ");
-}
-
-// Parse active excludes from excludeText
-const excludeTerms = computed(() => {
-  return new Set(
-    excludeText.value
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => s.toLowerCase())
-  );
+// === Exclusions (always active) ===
+const excludesVisible = ref(false);
+const excludesText = ref(
+  "Roof, Signboard, Wall Decoration, Fence, Door, Exterior, Window, Roof Decoration"
+);
+const excludesSummary = computed(() => {
+  const parts = splitExcludes(excludesText.value);
+  return parts.length ? parts.join(", ") : "none";
 });
+function splitExcludes(s: string): string[] {
+  return s
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
 
-// selection state
+// Map-like qty storage as string so field can be cleared while editing
 const qtyMap = ref<Record<string, string>>({});
 const touched = ref<Record<string, boolean>>({});
 
@@ -231,29 +240,33 @@ function touch(key: string) {
   touched.value = { ...touched.value, [key]: true };
 }
 
-// filtering: search + always-on excludes
-function isExcluded(file: string): boolean {
-  if (excludeTerms.value.size === 0) return false;
-  const label = labelFor(file).toLowerCase();
-  for (const term of excludeTerms.value) {
-    if (label.includes(term)) return true;
-  }
-  return false;
+// Pretty name from filename
+function prettyName(file: string): string {
+  const name = file.replace(/\.csv$/i, "");
+  return name
+    .split("_")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
 }
+
+// Filtering (search + exclusions always applied)
 const filtered = computed(() => {
   const s = q.value.trim().toLowerCase();
-  const list = !s
-    ? props.files.slice()
-    : props.files.filter((f) => labelFor(f).toLowerCase().includes(s));
-  return list.filter((f) => !isExcluded(f));
+  const excludes = splitExcludes(excludesText.value).map((p) => p.toLowerCase());
+  const base = props.files;
+  return base.filter((f) => {
+    const human = prettyName(f).toLowerCase();
+    if (excludes.some((ex) => human.includes(ex))) return false;
+    if (!s) return true;
+    return human.includes(s);
+  });
 });
 
 const selectedList = computed(() =>
-  Object.keys(qtyMap.value).sort((a, b) => a.localeCompare(b))
+  Object.keys(qtyMap.value).sort((a, b) => prettyName(a).localeCompare(prettyName(b)))
 );
 const selectedCount = computed(() => Object.keys(qtyMap.value).length);
 
-// selection ops
 function toggle(f: string) {
   if (hasQty(f)) delQty(f);
   else setQty(f, "1");
@@ -278,7 +291,7 @@ function remove(f: string) {
   delQty(f);
 }
 
-// qty helpers
+// Quantity helpers
 function clamp(n: number, min = 1, max = 9999) {
   if (!Number.isFinite(n)) return min;
   n = Math.floor(n);
@@ -324,7 +337,7 @@ const hasInvalid = computed(() =>
   selectedList.value.some((f) => invalidReason(f) !== null)
 );
 
-// fetch & process
+// Fetch & process
 function isHtml(ct: string | null | undefined) {
   return (ct ?? "").toLowerCase().includes("text/html");
 }
@@ -336,13 +349,11 @@ async function tryFetchCsv(candidates: string[]): Promise<string | null> {
       const ct = res.headers.get("content-type");
       if (isHtml(ct)) continue;
       const t = await res.text();
-      if (!t || !t.trim()) continue;
-      return t;
+      if (t && t.trim()) return t;
     } catch {}
   }
   return null;
 }
-
 async function processNow() {
   if (hasInvalid.value) {
     const t: Record<string, boolean> = {};
@@ -377,11 +388,188 @@ async function processNow() {
     const example = `${absBase}${props.basePath}${encodeURIComponent(
       selectedList.value[0] ?? ""
     )}`;
-    alert(
-      `No item CSVs loaded.\n\nTried e.g.:\n${example}\n\nCheck that the files exist in this project.`
-    );
+    alert(`No item CSVs loaded.\n\nTried e.g.:\n${example}\n\nCheck that the files exist in this project.`);
   }
 
   emit("process", docs);
+}
+
+// ===== Rainbow CSV preview (raw and qty-adjusted), teleported bubble =====
+type BubbleSide = "left" | "right";
+const bubble = ref<{ visible: boolean; html: string; x: number; y: number; side: BubbleSide }>({
+  visible: false,
+  html: "",
+  x: 0,
+  y: 0,
+  side: "left",
+});
+const bubbleStyle = computed(() => {
+  return {
+    left: `${bubble.value.x}px`,
+    top: `${bubble.value.y}px`,
+    opacity: bubble.value.visible ? "1" : "0",
+  } as Record<string, string>;
+});
+let longPressTimer: number | null = null;
+
+function anchorRectFromEvent(ev: MouseEvent | TouchEvent) {
+  const target = ev.currentTarget as HTMLElement | null;
+  if (!target) return null;
+  return target.getBoundingClientRect();
+}
+function placeBubbleAbove(rect: DOMRect, side: BubbleSide) {
+  const margin = 8;
+  const bubbleWidth = Math.min(448, window.innerWidth * 0.92); // ~28rem
+  const x =
+    side === "left"
+      ? Math.min(rect.right + margin, window.innerWidth - bubbleWidth - margin)
+      : Math.max(rect.left - bubbleWidth - margin, margin);
+  const y = Math.max(rect.top - 12, margin);
+  return { x, y };
+}
+
+const csvHtml = ref<Record<string, string>>({});
+const csvHtmlWithQty = ref<Record<string, string>>({});
+const loadingHtml =
+  '<span class="opacity-60">Loading…</span>';
+
+function toRainbowCsvHtml(csvText: string): string {
+  // Simple rainbow: cycle tailwind text colors across columns
+  const palette = [
+    "text-primary",
+    "text-secondary",
+    "text-accent",
+    "text-info",
+    "text-success",
+    "text-warning",
+    "text-error",
+  ];
+  const lines = csvText.replace(/\r\n/g, "\n").split("\n");
+  const htmlLines: string[] = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = line.split(",");
+    const pieces = cols.map((c, i) => {
+      const cls = palette[i % palette.length];
+      return `<span class="${cls}">${escapeHtml(c.trim())}</span>`;
+    });
+    htmlLines.push(pieces.join('<span class="opacity-40">, </span>'));
+  }
+  return htmlLines.join("\n");
+}
+function adjustCsvQuantities(csvText: string, factor: number): string {
+  const lines = csvText.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const parts = line.split(",");
+    if (parts.length < 2) {
+      out.push(line);
+      continue;
+    }
+    const a = parts[0];
+    const b = parts[1];
+    const n = Number(b);
+    if (Number.isFinite(n)) {
+      const v = n * factor;
+      const clean = Number.isInteger(v) ? String(v) : String(v).replace(/\.0+$/, "");
+      out.push(`${a.trim()}, ${clean}`);
+    } else {
+      out.push(line);
+    }
+  }
+  return out.join("\n");
+}
+function escapeHtml(s: string) {
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+async function fetchCsvTextFor(file: string): Promise<string | null> {
+  const origin = window.location.origin;
+  const base = import.meta.env.BASE_URL;
+  const absBase = new URL(base, origin).toString();
+  const enc = encodeURIComponent(file);
+  const candidates = [
+    `${absBase}${props.basePath}${enc}`,
+    `${base}${props.basePath}${enc}`,
+    `${props.basePath}${enc}`,
+    `/${props.basePath}${enc}`,
+  ];
+  return await tryFetchCsv(candidates);
+}
+async function prefetchCsvHtml(file: string) {
+  if (csvHtml.value[file]) return;
+  const text = await fetchCsvTextFor(file);
+  csvHtml.value[file] = text ? toRainbowCsvHtml(text) : '<span class="opacity-60">No data</span>';
+}
+async function prefetchCsvHtmlWithQty(file: string, qty: number) {
+  if (qty <= 1) return prefetchCsvHtml(file);
+  const key = `${file}::${qty}`;
+  if (csvHtmlWithQty.value[key]) return;
+  const text = await fetchCsvTextFor(file);
+  if (!text) {
+    csvHtmlWithQty.value[key] = '<span class="opacity-60">No data</span>';
+    return;
+  }
+  const adjusted = adjustCsvQuantities(text, qty);
+  csvHtmlWithQty.value[key] = toRainbowCsvHtml(adjusted);
+}
+
+async function ensureHtmlFor(side: BubbleSide, f: string, qty: number) {
+  if (side === "left") {
+    if (!csvHtml.value[f]) await prefetchCsvHtml(f);
+    return csvHtml.value[f] || loadingHtml;
+  } else {
+    if (qty <= 1) {
+      if (!csvHtml.value[f]) await prefetchCsvHtml(f);
+      return csvHtml.value[f] || loadingHtml;
+    } else {
+      const key = `${f}::${qty}`;
+      if (!csvHtmlWithQty.value[key]) await prefetchCsvHtmlWithQty(f, qty);
+      return csvHtmlWithQty.value[key] || loadingHtml;
+    }
+  }
+}
+async function showBubble(side: BubbleSide, f: string, qty: number, ev: MouseEvent | TouchEvent) {
+  const rect = anchorRectFromEvent(ev);
+  if (!rect) return;
+  bubble.value.html = loadingHtml;
+  bubble.value.side = side;
+  const pos = placeBubbleAbove(rect, side);
+  bubble.value.x = pos.x;
+  bubble.value.y = pos.y;
+  bubble.value.visible = true;
+  bubble.value.html = await ensureHtmlFor(side, f, qty);
+}
+function hideBubble() {
+  bubble.value.visible = false;
+  bubble.value.html = "";
+}
+// mouse hover
+function onHoverStart(side: BubbleSide, f: string, qty: number, ev: MouseEvent) {
+  showBubble(side, f, qty, ev);
+}
+function onHoverEnd() {
+  hideBubble();
+}
+// mobile long-press
+function onTouchStart(side: BubbleSide, f: string, qty: number, ev: TouchEvent) {
+  if (longPressTimer) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  longPressTimer = window.setTimeout(() => {
+    showBubble(side, f, qty, ev);
+  }, 400);
+}
+function onTouchEnd() {
+  if (longPressTimer) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  hideBubble();
 }
 </script>

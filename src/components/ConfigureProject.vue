@@ -7,7 +7,7 @@
         <div class="flex gap-2">
           <button
             class="btn btn-primary btn-sm"
-            :disabled="selectedCount === 0"
+            :disabled="selectedCount === 0 || hasInvalid"
             @click="processNow"
             title="Process with current selection"
           >
@@ -23,25 +23,48 @@
         </div>
       </div>
 
+      <!-- Search + Exclusion controls -->
+      <div class="flex flex-col gap-2">
+        <div class="join w-full">
+          <input
+            v-model="q"
+            class="input input-bordered join-item w-full"
+            placeholder="Search recipe names…"
+          />
+          <button class="btn join-item" @click="q = ''">Clear</button>
+        </div>
+
+        <!-- Exclusions: always applied; text box hidden by default but editable -->
+        <div class="flex items-center justify-between">
+          <div class="text-xs opacity-70">
+            Exclusions are always active (edit to change): {{ excludesSummary }}
+          </div>
+          <button class="btn btn-ghost btn-xs" @click="excludesVisible = !excludesVisible">
+            {{ excludesVisible ? 'Hide' : 'Edit' }} exclusions
+          </button>
+        </div>
+        <div v-show="excludesVisible" class="w-full">
+          <input
+            v-model="excludesText"
+            class="input input-bordered w-full"
+            placeholder="Comma-separated phrases to exclude…"
+          />
+          <div class="text-xs opacity-60 mt-1">
+            Example: Roof, Signboard, Wall Decoration, Fence, Door, Exterior, Window, Roof Decoration
+          </div>
+        </div>
+      </div>
+
       <!-- Two balanced columns; stack on small screens -->
       <div class="grid gap-5 md:grid-cols-2 min-w-0">
         <!-- Left: searchable file list -->
         <div class="min-w-0">
-          <div class="join w-full">
-            <input
-              v-model="q"
-              class="input input-bordered join-item w-full"
-              placeholder="Search recipe names…"
-            />
-          </div>
           <div class="text-xs opacity-70 mt-2">
             Showing {{ filtered.length }} of {{ files.length }} recipes.
           </div>
 
           <div class="flex gap-2 mt-3">
-            <button class="btn btn-xs" @click="selectAllFiltered">
-              Check All
-            </button>
+            <button class="btn btn-xs" @click="selectAllFiltered">Check All</button>
             <button class="btn btn-xs" @click="invertSelection">Invert Checks</button>
           </div>
 
@@ -49,14 +72,21 @@
           <div class="mt-3 max-h-80 md:max-h-[28rem] overflow-auto rounded border border-base-300">
             <ul class="menu menu-sm">
               <li v-for="f in filtered" :key="f">
-                <label class="flex items-center gap-2 px-3 py-2">
+                <label
+                  class="flex items-center gap-2 px-3 py-2 relative"
+                  @mouseenter="onHoverStart('left', f, 1, $event)"
+                  @mouseleave="onHoverEnd"
+                  @touchstart.passive="onTouchStart('left', f, 1, $event)"
+                  @touchend.passive="onTouchEnd"
+                  @touchcancel.passive="onTouchEnd"
+                >
                   <input
                     type="checkbox"
                     class="checkbox checkbox-sm"
                     :checked="qtyMap[f] !== undefined"
                     @change="toggle(f)"
                   />
-                  <span class="truncate">{{ labelFor(f) }}</span>
+                  <span class="truncate">{{ prettyName(f) }}</span>
                 </label>
               </li>
             </ul>
@@ -80,8 +110,16 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="f in selectedList" :key="f">
-                  <td class="truncate align-top pt-4 min-w-0">{{ labelFor(f) }}</td>
+                <tr
+                  v-for="f in selectedList"
+                  :key="f"
+                  @mouseenter="onHoverStart('right', f, parseQty(getQty(f)) ?? 1, $event)"
+                  @mouseleave="onHoverEnd"
+                  @touchstart.passive="onTouchStart('right', f, parseQty(getQty(f)) ?? 1, $event)"
+                  @touchend.passive="onTouchEnd"
+                  @touchcancel.passive="onTouchEnd"
+                >
+                  <td class="truncate align-top pt-4 min-w-0">{{ prettyName(f) }}</td>
                   <td>
                     <div class="join">
                       <button class="btn btn-xs join-item" @click="dec(f)">-</button>
@@ -105,13 +143,7 @@
                     </p>
                   </td>
                   <td class="text-right">
-                    <button
-                      class="btn btn-ghost btn-xs"
-                      title="Remove"
-                      @click="remove(f)"
-                    >
-                      ✕
-                    </button>
+                    <button class="btn btn-ghost btn-xs" title="Remove" @click="remove(f)">✕</button>
                   </td>
                 </tr>
               </tbody>
@@ -122,11 +154,27 @@
             Workshop projects selected appear here, adjust quantities as needed.
           </p>
           <p class="text-xs opacity-70 mt-1">
-            <b>*NOTE:</b> Tanuki only loads in company workshop project recipes by default, see "Custom Recipes & Gathering" for other items.
+            <b>*NOTE:</b> Tanuki only loads in company workshop project recipes by default, see “Custom Recipes &amp; Gathering” for other items.
           </p>
         </div>
       </div>
     </div>
+
+    <!-- Teleported hover/press bubble (fixed, not clipped by scroll) -->
+    <teleport to="body">
+      <div
+        v-if="bubble.visible"
+        class="fixed z-[9999] pointer-events-none transition-opacity duration-150"
+        :style="bubbleStyle"
+      >
+        <div class="chat" :class="bubble.side === 'left' ? 'chat-start' : 'chat-end'">
+          <div
+            class="chat-bubble max-w-[min(28rem,92vw)] whitespace-pre font-mono text-xs shadow-xl"
+            v-html="bubble.html"
+          ></div>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
@@ -134,28 +182,37 @@
 import { computed, ref } from "vue";
 
 const props = defineProps<{
-  /** Folder path to the CSVs, e.g. "data/fabrication_requirements/" (must end with `/`) */
   basePath: string;
-  /** Filenames inside basePath, e.g. ["Cobalt Ingot.csv", "Steel Joint Plate.csv"] */
   files: string[];
-  /** When false, disable Process (e.g., refs not loaded yet) */
   canProcess?: boolean;
 }>();
 
 const emit = defineEmits<{
-  /** Emits weighted docs and expects the app to process immediately */
   (e: "process", docs: { name: string; text: string; qty: number }[]): void;
 }>();
 
 const q = ref("");
 
-// Use a plain reactive object for reactivity.
-// Store as STRING so users can clear the field during editing.
-// New selections default to "1".
-const qtyMap = ref<Record<string, string>>({}); // filename -> '1'..'9999' or '' while editing
-const touched = ref<Record<string, boolean>>({}); // per-row touched state for error display
+// === Exclusions (always active) ===
+const excludesVisible = ref(false);
+const excludesText = ref(
+  "Roof, Signboard, Wall Decoration, Fence, Door, Exterior, Window, Roof Decoration"
+);
+const excludesSummary = computed(() => {
+  const parts = splitExcludes(excludesText.value);
+  return parts.length ? parts.join(", ") : "none";
+});
+function splitExcludes(s: string): string[] {
+  return s
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
 
-// --- helpers to interact with qtyMap like a Map ---
+// Map-like qty storage as string so field can be cleared while editing
+const qtyMap = ref<Record<string, string>>({});
+const touched = ref<Record<string, boolean>>({});
+
 function hasQty(key: string) {
   return Object.prototype.hasOwnProperty.call(qtyMap.value, key);
 }
@@ -175,52 +232,45 @@ function delQty(key: string) {
 }
 function resetQtyMap(next: Record<string, string>) {
   qtyMap.value = { ...next };
-  // reset touched status for any removed rows
   const t: Record<string, boolean> = {};
   for (const k of Object.keys(next)) t[k] = touched.value[k] ?? false;
   touched.value = t;
 }
-
 function touch(key: string) {
   touched.value = { ...touched.value, [key]: true };
 }
 
-function humanizeFilename(f: string): string {
-  // drop extension
-  const base = f.replace(/\.[^.]+$/, "");
-  // split on underscores/spaces, capitalize first letter
-  return base
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+// Pretty name from filename
+function prettyName(file: string): string {
+  const name = file.replace(/\.csv$/i, "");
+  return name
+    .split("_")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
     .join(" ");
 }
 
-function labelFor(f: string): string {
-  return humanizeFilename(f);
-}
-
-// --- filtering & selection ---
+// Filtering (search + exclusions always applied)
 const filtered = computed(() => {
   const s = q.value.trim().toLowerCase();
-  if (!s) return props.files.slice();
-  return props.files.filter((f) => {
-    const raw = f.toLowerCase();
-    const label = labelFor(f).toLowerCase();
-    return raw.includes(s) || label.includes(s);
+  const excludes = splitExcludes(excludesText.value).map((p) => p.toLowerCase());
+  const base = props.files;
+  return base.filter((f) => {
+    const human = prettyName(f).toLowerCase();
+    if (excludes.some((ex) => human.includes(ex))) return false;
+    if (!s) return true;
+    return human.includes(s);
   });
 });
 
 const selectedList = computed(() =>
-  Object.keys(qtyMap.value).sort((a, b) => a.localeCompare(b))
+  Object.keys(qtyMap.value).sort((a, b) => prettyName(a).localeCompare(prettyName(b)))
 );
 const selectedCount = computed(() => Object.keys(qtyMap.value).length);
 
 function toggle(f: string) {
   if (hasQty(f)) delQty(f);
-  else setQty(f, "1"); // default remains 1, no touch() here
+  else setQty(f, "1");
 }
-
 function selectAllFiltered() {
   const next: Record<string, string> = { ...qtyMap.value };
   for (const f of filtered.value) if (!hasQty(f)) next[f] = "1";
@@ -228,9 +278,7 @@ function selectAllFiltered() {
 }
 function invertSelection() {
   const next: Record<string, string> = {};
-  // add items currently in filtered but not selected
   for (const f of filtered.value) if (!hasQty(f)) next[f] = "1";
-  // keep selections outside filter unchanged
   for (const [k, v] of Object.entries(qtyMap.value)) {
     if (!filtered.value.includes(k)) next[k] = v;
   }
@@ -243,7 +291,7 @@ function remove(f: string) {
   delQty(f);
 }
 
-// --- quantity helpers ---
+// Quantity helpers
 function clamp(n: number, min = 1, max = 9999) {
   if (!Number.isFinite(n)) return min;
   n = Math.floor(n);
@@ -251,18 +299,14 @@ function clamp(n: number, min = 1, max = 9999) {
   if (n > max) n = max;
   return n;
 }
-
-/** Parse a string into a positive int; returns null for blank/invalid/<=0 */
 function parseQty(s: string | undefined | null): number | null {
   if (s == null) return null;
-  if (s.trim() === "") return null; // blank is invalid for processing
-  // strictly digits
+  if (s.trim() === "") return null;
   if (!/^\d+$/.test(s)) return null;
   const n = Number(s);
   if (!Number.isFinite(n) || n <= 0) return null;
   return clamp(n, 1, 9999);
 }
-
 function inc(f: string) {
   const cur = parseQty(getQty(f));
   const next = clamp((cur ?? 0) + 1);
@@ -270,16 +314,15 @@ function inc(f: string) {
   touch(f);
 }
 function dec(f: string) {
-  const cur = parseQty(getQty(f) ?? "1"); // treat empty as 1 when stepping
+  const cur = parseQty(getQty(f) ?? "1");
   const next = clamp((cur ?? 1) - 1);
   setQty(f, String(next));
   touch(f);
 }
 function onQtyInput(f: string, e: Event) {
   const raw = (e.target as HTMLInputElement).value;
-  setQty(f, raw); // allow '' while editing
+  setQty(f, raw);
 }
-
 function invalidReason(f: string): string | null {
   const v = getQty(f);
   if (v == null) return "Required";
@@ -290,47 +333,29 @@ function invalidReason(f: string): string | null {
   if (n > 9999) return "Too large (max 9999)";
   return null;
 }
-
 const hasInvalid = computed(() =>
   selectedList.value.some((f) => invalidReason(f) !== null)
 );
 
-// --- fetch & process ---
+// Fetch & process
 function isHtml(ct: string | null | undefined) {
   return (ct ?? "").toLowerCase().includes("text/html");
 }
-
-/** Try a list of candidate URLs and return the first CSV text that works. */
 async function tryFetchCsv(candidates: string[]): Promise<string | null> {
   for (const url of candidates) {
     try {
       const res = await fetch(url);
-      if (!res.ok) {
-        console.warn("[ConfigureProject] fetch not ok", res.status, url);
-        continue;
-      }
+      if (!res.ok) continue;
       const ct = res.headers.get("content-type");
-      if (isHtml(ct)) {
-        console.warn("[ConfigureProject] got HTML (SPA fallback) for", url);
-        continue;
-      }
+      if (isHtml(ct)) continue;
       const t = await res.text();
-      if (!t || !t.trim()) {
-        console.warn("[ConfigureProject] empty CSV for", url);
-        continue;
-      }
-      return t;
-    } catch (e) {
-      console.warn("[ConfigureProject] fetch error for", url, e);
-    }
+      if (t && t.trim()) return t;
+    } catch {}
   }
   return null;
 }
-
 async function processNow() {
-  // Block processing if any invalid; focus the first invalid input
   if (hasInvalid.value) {
-    // mark all as touched to reveal messages
     const t: Record<string, boolean> = {};
     for (const k of Object.keys(qtyMap.value)) t[k] = true;
     touched.value = t;
@@ -339,14 +364,13 @@ async function processNow() {
   }
 
   const docs: { name: string; text: string; qty: number }[] = [];
-
-  const origin = window.location.origin; // http://localhost:5173
-  const base = import.meta.env.BASE_URL; // "/" (dev) or "/repo/" (Pages)
-  const absBase = new URL(base, origin).toString(); // absolute base
+  const origin = window.location.origin;
+  const base = import.meta.env.BASE_URL;
+  const absBase = new URL(base, origin).toString();
 
   for (const f of selectedList.value) {
     const qtyParsed = parseQty(getQty(f));
-    if (qtyParsed === null) continue; // defensive
+    if (qtyParsed === null) continue;
 
     const enc = encodeURIComponent(f);
     const candidates = [
@@ -357,20 +381,195 @@ async function processNow() {
     ];
 
     const text = await tryFetchCsv(candidates);
-    if (text) {
-      docs.push({ name: f, text, qty: qtyParsed });
-    }
+    if (text) docs.push({ name: f, text, qty: qtyParsed });
   }
 
   if (docs.length === 0) {
     const example = `${absBase}${props.basePath}${encodeURIComponent(
       selectedList.value[0] ?? ""
     )}`;
-    alert(
-      `No item CSVs loaded.\n\nTried e.g.:\n${example}\n\nCheck that the files exist in this project.`
-    );
+    alert(`No item CSVs loaded.\n\nTried e.g.:\n${example}\n\nCheck that the files exist in this project.`);
   }
 
   emit("process", docs);
+}
+
+// ===== Rainbow CSV preview (raw and qty-adjusted), teleported bubble =====
+type BubbleSide = "left" | "right";
+const bubble = ref<{ visible: boolean; html: string; x: number; y: number; side: BubbleSide }>({
+  visible: false,
+  html: "",
+  x: 0,
+  y: 0,
+  side: "left",
+});
+const bubbleStyle = computed(() => {
+  return {
+    left: `${bubble.value.x}px`,
+    top: `${bubble.value.y}px`,
+    opacity: bubble.value.visible ? "1" : "0",
+  } as Record<string, string>;
+});
+let longPressTimer: number | null = null;
+
+function anchorRectFromEvent(ev: MouseEvent | TouchEvent) {
+  const target = ev.currentTarget as HTMLElement | null;
+  if (!target) return null;
+  return target.getBoundingClientRect();
+}
+function placeBubbleAbove(rect: DOMRect, side: BubbleSide) {
+  const margin = 8;
+  const bubbleWidth = Math.min(448, window.innerWidth * 0.92); // ~28rem
+  const x =
+    side === "left"
+      ? Math.min(rect.right + margin, window.innerWidth - bubbleWidth - margin)
+      : Math.max(rect.left - bubbleWidth - margin, margin);
+  const y = Math.max(rect.top - 12, margin);
+  return { x, y };
+}
+
+const csvHtml = ref<Record<string, string>>({});
+const csvHtmlWithQty = ref<Record<string, string>>({});
+const loadingHtml =
+  '<span class="opacity-60">Loading…</span>';
+
+function toRainbowCsvHtml(csvText: string): string {
+  // Simple rainbow: cycle tailwind text colors across columns
+  const palette = [
+    "text-primary",
+    "text-secondary",
+    "text-accent",
+    "text-info",
+    "text-success",
+    "text-warning",
+    "text-error",
+  ];
+  const lines = csvText.replace(/\r\n/g, "\n").split("\n");
+  const htmlLines: string[] = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = line.split(",");
+    const pieces = cols.map((c, i) => {
+      const cls = palette[i % palette.length];
+      return `<span class="${cls}">${escapeHtml(c.trim())}</span>`;
+    });
+    htmlLines.push(pieces.join('<span class="opacity-40">, </span>'));
+  }
+  return htmlLines.join("\n");
+}
+function adjustCsvQuantities(csvText: string, factor: number): string {
+  const lines = csvText.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const parts = line.split(",");
+    if (parts.length < 2) {
+      out.push(line);
+      continue;
+    }
+    const a = parts[0];
+    const b = parts[1];
+    const n = Number(b);
+    if (Number.isFinite(n)) {
+      const v = n * factor;
+      const clean = Number.isInteger(v) ? String(v) : String(v).replace(/\.0+$/, "");
+      out.push(`${a.trim()}, ${clean}`);
+    } else {
+      out.push(line);
+    }
+  }
+  return out.join("\n");
+}
+function escapeHtml(s: string) {
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+async function fetchCsvTextFor(file: string): Promise<string | null> {
+  const origin = window.location.origin;
+  const base = import.meta.env.BASE_URL;
+  const absBase = new URL(base, origin).toString();
+  const enc = encodeURIComponent(file);
+  const candidates = [
+    `${absBase}${props.basePath}${enc}`,
+    `${base}${props.basePath}${enc}`,
+    `${props.basePath}${enc}`,
+    `/${props.basePath}${enc}`,
+  ];
+  return await tryFetchCsv(candidates);
+}
+async function prefetchCsvHtml(file: string) {
+  if (csvHtml.value[file]) return;
+  const text = await fetchCsvTextFor(file);
+  csvHtml.value[file] = text ? toRainbowCsvHtml(text) : '<span class="opacity-60">No data</span>';
+}
+async function prefetchCsvHtmlWithQty(file: string, qty: number) {
+  if (qty <= 1) return prefetchCsvHtml(file);
+  const key = `${file}::${qty}`;
+  if (csvHtmlWithQty.value[key]) return;
+  const text = await fetchCsvTextFor(file);
+  if (!text) {
+    csvHtmlWithQty.value[key] = '<span class="opacity-60">No data</span>';
+    return;
+  }
+  const adjusted = adjustCsvQuantities(text, qty);
+  csvHtmlWithQty.value[key] = toRainbowCsvHtml(adjusted);
+}
+
+async function ensureHtmlFor(side: BubbleSide, f: string, qty: number) {
+  if (side === "left") {
+    if (!csvHtml.value[f]) await prefetchCsvHtml(f);
+    return csvHtml.value[f] || loadingHtml;
+  } else {
+    if (qty <= 1) {
+      if (!csvHtml.value[f]) await prefetchCsvHtml(f);
+      return csvHtml.value[f] || loadingHtml;
+    } else {
+      const key = `${f}::${qty}`;
+      if (!csvHtmlWithQty.value[key]) await prefetchCsvHtmlWithQty(f, qty);
+      return csvHtmlWithQty.value[key] || loadingHtml;
+    }
+  }
+}
+async function showBubble(side: BubbleSide, f: string, qty: number, ev: MouseEvent | TouchEvent) {
+  const rect = anchorRectFromEvent(ev);
+  if (!rect) return;
+  bubble.value.html = loadingHtml;
+  bubble.value.side = side;
+  const pos = placeBubbleAbove(rect, side);
+  bubble.value.x = pos.x;
+  bubble.value.y = pos.y;
+  bubble.value.visible = true;
+  bubble.value.html = await ensureHtmlFor(side, f, qty);
+}
+function hideBubble() {
+  bubble.value.visible = false;
+  bubble.value.html = "";
+}
+// mouse hover
+function onHoverStart(side: BubbleSide, f: string, qty: number, ev: MouseEvent) {
+  showBubble(side, f, qty, ev);
+}
+function onHoverEnd() {
+  hideBubble();
+}
+// mobile long-press
+function onTouchStart(side: BubbleSide, f: string, qty: number, ev: TouchEvent) {
+  if (longPressTimer) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  longPressTimer = window.setTimeout(() => {
+    showBubble(side, f, qty, ev);
+  }, 400);
+}
+function onTouchEnd() {
+  if (longPressTimer) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  hideBubble();
 }
 </script>

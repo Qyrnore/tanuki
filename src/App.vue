@@ -204,9 +204,10 @@ function processAll() {
   console.debug('[App] topMap size:', topMap.size);
 
   const crafted = buildCraftedTotals(topMap);
-  const recipes = parseRecipeBookCsv(recipeBookText.value!);
+  const { recipes, yields } = parseRecipeBookCsv(recipeBookText.value!);
   const gathering = parseGatheringCsv(gatheringText.value!);
-  const gatheringRows = buildGatheringList(topMap, recipes, gathering);
+  const gatheringRows = buildGatheringList(topMap, recipes, gathering, yields);
+  treeText.value = formatRecipeTree(topMap, recipes, yields);
 
   craftedRows.value = crafted;
   gatheringWithLoc.value = gatheringRows.map((r) => ({
